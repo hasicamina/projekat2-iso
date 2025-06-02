@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "nodemon": "^3.1.9",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
