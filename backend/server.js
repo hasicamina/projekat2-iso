@@ -1,17 +1,30 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
+<<<<<<< HEAD
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/taskdb',
+=======
+// Database configuration koristeći individualne varijable
+const pool = new Pool({
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    database: process.env.DB_NAME || 'webapp_db',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'your_password_here',
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+>>>>>>> 3fb89c6 (izmjena)
 });
 
 app.use(cors());
 app.use(express.json());
 
+<<<<<<< HEAD
 // Helper: Create tasks table if not exists (možeš pozvati pri startu)
 async function createTableIfNotExists() {
     const query = `
@@ -26,6 +39,44 @@ async function createTableIfNotExists() {
     await pool.query(query);
 }
 
+=======
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+    });
+});
+
+// Test database connection
+async function testDatabaseConnection() {
+    try {
+        await pool.query('SELECT NOW()');
+        console.log('✅ Database connected successfully');
+        console.log(`📊 Connected to: ${process.env.DB_NAME} on ${process.env.DB_HOST}:${process.env.DB_PORT}`);
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        process.exit(1);
+    }
+}
+
+// Helper: Create tasks table if not exists
+async function createTableIfNotExists() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await pool.query(query);
+    console.log('📋 Tasks table ready');
+}
+
+>>>>>>> 3fb89c6 (izmjena)
 app.get('/tasks', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
@@ -103,6 +154,7 @@ app.delete('/tasks/:id', async (req, res) => {
     }
 });
 
+<<<<<<< HEAD
 createTableIfNotExists().then(() => {
     app.listen(port, () => {
         console.log(`Server running on port ${port}`);
@@ -111,3 +163,21 @@ createTableIfNotExists().then(() => {
     console.error('Failed to create tasks table:', err);
     process.exit(1);
 });
+=======
+// Initialize database and start server
+async function initializeApp() {
+    try {
+        await testDatabaseConnection();
+        await createTableIfNotExists();
+        
+        app.listen(port, () => {
+            console.log(`🚀 Server running on port ${port} in ${process.env.NODE_ENV} mode`);
+        });
+    } catch (error) {
+        console.error('Failed to initialize application:', error);
+        process.exit(1);
+    }
+}
+
+initializeApp();
+>>>>>>> 3fb89c6 (izmjena)

@@ -1,0 +1,44 @@
+# Builder stage
+FROM node:18-alpine as builder
+WORKDIR /app
+# Kopiraj frontend fajlove
+COPY frontend/ ./
+# Ako imate build proces za frontend (optional)
+# RUN npm install && npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Instaliraj curl za health check
+RUN apk add --no-cache curl
+
+# Kopiraj custom nginx konfiguraciju
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Kopiraj frontend fajlove
+COPY frontend/ /usr/share/nginx/html/
+
+# Kopiraj build fajlove iz builder stage (ako postoje)
+# COPY --from=builder /app/dist/ /usr/share/nginx/html/
+
+# Kreiraj potrebne direktorije
+RUN mkdir -p /var/cache/nginx/client_temp && \
+    mkdir -p /var/cache/nginx/proxy_temp && \
+    mkdir -p /var/cache/nginx/fastcgi_temp && \
+    mkdir -p /var/cache/nginx/uwsgi_temp && \
+    mkdir -p /var/cache/nginx/scgi_temp
+
+# Postavi dozvole
+RUN chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html
+
+# Expose ports
+EXPOSE 80 443
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+# Pokretanje nginx
+CMD ["nginx", "-g", "daemon off;"]

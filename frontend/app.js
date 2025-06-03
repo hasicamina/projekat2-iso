@@ -28,8 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="task-title">${task.title}</div>
                         <div class="task-description">${task.description || ''}</div>
                         <div class="task-actions">
+<<<<<<< HEAD
                             <button class="edit" data-id="${task._id}">Edit</button>
                             <button class="delete" data-id="${task._id}">Delete</button>
+=======
+                            <button class="edit" data-id="${task.id}">Edit</button>
+                            <button class="delete" data-id="${task.id}">Delete</button>
+>>>>>>> 3fb89c6 (izmjena)
                         </div>
                     `;
                     tasksList.appendChild(taskElement);
@@ -89,7 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(task => {
                 titleInput.value = task.title;
                 descriptionInput.value = task.description || '';
+<<<<<<< HEAD
                 taskIdInput.value = task._id;
+=======
+                taskIdInput.value = task.id;
+>>>>>>> 3fb89c6 (izmjena)
                 submitBtn.textContent = 'Update Task';
                 cancelBtn.style.display = 'inline-block';
             })
@@ -132,4 +141,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelBtn.addEventListener('click', resetForm);
     
     fetchTasks();
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 3fb89c6 (izmjena)
