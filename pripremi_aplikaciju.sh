@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🚀 Pokretanje web aplikacije..."
-echo "==============================="
+echo "🔧 Priprema Docker okruženja za web aplikaciju..."
+echo "==============================================="
 
 # Provjera da li je Docker pokrenut
 if ! docker info &> /dev/null; then
@@ -9,143 +9,70 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Provjera da li postoji mreža
+# Provjera da li je Docker Compose dostupan
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo "❌ Docker Compose nije instaliran ili dostupan."
+    exit 1
+fi
+
+echo "✅ Docker je spreman!"
+
+# Kreiranje mreže ako ne postoji
 if ! docker network ls | grep -q app-network; then
-    echo "❌ Docker mreža 'app-network' ne postoji. Pokreni ./setup.sh prvo."
+    echo "🌐 Kreiram Docker mrežu..."
+    docker network create --driver bridge --subnet=172.20.0.0/16 app-network
+    echo "✅ Mreža 'app-network' kreirana!"
+else
+    echo "✅ Mreža 'app-network' već postoji!"
+fi
+
+# Kreiranje volumena
+echo "💾 Kreiram Docker volumene..."
+docker volume create postgres_data 2>/dev/null || true
+docker volume create redis_data 2>/dev/null || true
+docker volume create pgadmin_data 2>/dev/null || true
+echo "✅ Volumeni kreirani!"
+
+# Kreiranje direktorija ako ne postoje
+echo "📁 Kreiram potrebne direktorije..."
+mkdir -p frontend backend logs
+echo "✅ Direktoriji kreirani!"
+
+# Postavljanje dozvola za skripte
+echo "🔐 Postavljam dozvole za skripte..."
+chmod +x *.sh
+echo "✅ Dozvole postavljene!"
+
+# Build Docker slika
+echo "🏗️  Kreiram Docker slike..."
+
+# Backend slika
+echo "⚙️  Kreiranje backend slike..."
+if docker build -f Dockerfile.backend -t webapp-backend . --no-cache; then
+    echo "✅ Backend slika kreirana!"
+else
+    echo "❌ Greška pri kreiranju backend slike!"
     exit 1
 fi
 
-# Provjera da li postoje Docker slike
-if ! docker images | grep -q webapp-backend; then
-    echo "❌ webapp-backend slika ne postoji. Pokreni ./setup.sh prvo."
+# Frontend slika
+echo "🌐 Kreiranje frontend slike..."
+if docker build -f Dockerfile.frontend -t webapp-frontend . --no-cache; then
+    echo "✅ Frontend slika kreirana!"
+else
+    echo "❌ Greška pri kreiranju frontend slike!"
     exit 1
 fi
-
-if ! docker images | grep -q webapp-frontend; then
-    echo "❌ webapp-frontend slika ne postoji. Pokreni ./setup.sh prvo."
-    exit 1
-fi
-
-echo "▶️  Pokrećem sve komponente..."
-
-echo "🗄️  Pokrećem PostgreSQL..."
-docker run -d \
-    --name webapp_postgres \
-    --network app-network \
-    -e POSTGRES_DB=webapp_db \
-    -e POSTGRES_USER=postgres \
-    -e POSTGRES_PASSWORD=postgres123 \
-    -e PGDATA=/var/lib/postgresql/data/pgdata \
-    -v postgres_data:/var/lib/postgresql/data \
-    -v "$(pwd)/init.sql:/docker-entrypoint-initdb.d/init.sql" \
-    -p 54321:5432 \
-    --restart unless-stopped \
-    postgres:15-alpine
-
-echo "🔴 Pokrećem Redis..."
-docker run -d \
-    --name webapp_redis \
-    --network app-network \
-    -v redis_data:/data \
-    -p 6379:6379 \
-    --restart unless-stopped \
-    redis:7-alpine redis-server --appendonly yes
-
-echo "⏳ Čekam da se baza pokrene..."
-for i in {1..30}; do
-    if docker exec webapp_postgres pg_isready -U postgres -d webapp_db &> /dev/null; then
-        echo "✅ Baza je spremna!"
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "❌ Baza se nije pokrenula na vrijeme."
-        echo "📋 Logovi PostgreSQL-a:"
-        docker logs webapp_postgres
-        exit 1
-    fi
-    echo "   Pokušaj $i/30..."
-    sleep 2
-done
-
-echo "⚙️  Pokrećem backend..."
-docker run -d \
-    --name webapp_backend \
-    --network app-network \
-    -e NODE_ENV=production \
-    -e PORT=3000 \
-    -e DB_HOST=webapp_postgres \
-    -e DB_PORT=5432 \
-    -e DB_NAME=webapp_db \
-    -e DB_USER=postgres \
-    -e DB_PASSWORD=postgres123 \
-    -p 3000:3000 \
-    --restart unless-stopped \
-    webapp-backend
-
-echo "⏳ Čekam da backend odgovori..."
-for i in {1..20}; do
-    if curl -f http://localhost:3000/health &> /dev/null; then
-        echo "✅ Backend je spreman!"
-        break
-    fi
-    if [ $i -eq 20 ]; then
-        echo "❌ Backend nije dostupan!"
-        echo "📋 Logovi backend-a:"
-        docker logs webapp_backend
-        exit 1
-    fi
-    echo "   Pokušaj $i/20..."
-    sleep 3
-done
-
-echo "🌐 Pokrećem frontend..."
-docker run -d \
-    --name webapp_frontend \
-    --network app-network \
-    -p 80:80 \
-    --restart unless-stopped \
-    webapp-frontend
-
-echo "⏳ Čekam da frontend odgovori..."
-for i in {1..15}; do
-    if curl -f http://localhost/ &> /dev/null; then
-        echo "✅ Frontend je dostupan!"
-        break
-    fi
-    if [ $i -eq 15 ]; then
-        echo "❌ Frontend nije dostupan!"
-        echo "📋 Logovi frontend-a:"
-        docker logs webapp_frontend
-        exit 1
-    fi
-    echo "   Pokušaj $i/15..."
-    sleep 3
-done
-
-echo "🧠 Pokrećem pgAdmin..."
-docker run -d \
-    --name webapp_pgladmin \
-    --network app-network \
-    -e PGADMIN_DEFAULT_EMAIL=admin@webapp.com \
-    -e PGADMIN_DEFAULT_PASSWORD=admin123 \
-    -e PGADMIN_LISTEN_PORT=80 \
-    -v pgadmin_data:/var/lib/pgadmin \
-    -p 8080:80 \
-    --restart unless-stopped \
-    dpage/pgadmin4:latest
 
 echo ""
-echo "🎉 Aplikacija je uspješno pokrenuta!"
-echo "======================================="
-echo "🌐 Frontend:  http://localhost"
-echo "🔧 Backend:   http://localhost:3000"
-echo "📊 Health:    http://localhost:3000/health"
-echo "📋 Tasks API: http://localhost:3000/tasks"
-echo "🗄️  pgAdmin:   http://localhost:8080"
-echo "   └─ Email: admin@webapp.com"
-echo "   └─ Pass:  admin123"
+echo "🎉 Setup završen uspješno!"
+echo "========================="
+echo "💡 Sljedeći koraci:"
+echo "   1. Pokreni aplikaciju: ./start.sh"
+echo "   2. Zaustavi aplikaciju: ./stop.sh"
+echo "   3. Restartuj aplikaciju: ./restart.sh"
+echo "   4. Očisti sve: ./cleanup.sh"
 echo ""
-echo "💡 Korisni savjeti:"
-echo "   - Zaustavi sve: ./stop.sh"
-echo "   - Logovi: docker logs <container_name>"
-echo "   - Status: docker ps"
+echo "📊 Kreirane slike:"
+docker images | grep webapp-
+echo ""
