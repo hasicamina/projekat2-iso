@@ -18,7 +18,7 @@ mkdir -p /opt/webapp
 cd /opt/webapp
 
 # Kloniraj repozitorij
-git clone https://github.com/hasicamina/projekat2-iso.git .
+git clone ${git_repo_url} .
 
 # Postavljanje backend-a
 echo "🔧 Postavljam backend..."
@@ -65,55 +65,88 @@ cd /opt/webapp
 # Kopiraj frontend fajlove u nginx direktorij
 cp -r frontend/* /usr/share/nginx/html/
 
-# Kreiraj nginx konfiguraciju
-cat > /etc/nginx/conf.d/webapp.conf << EOF
-server {
-    listen 80;
-    server_name localhost;
-    root /usr/share/nginx/html;
-    index index.html;
-    
-    # Frontend static files
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    # Proxy API requests to backend (fallback u slučaju da ALB ne radi)
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-    }
-    
-    # Health check endpoint za ALB
-    location /health {
-        access_log off;
-        return 200 "Frontend healthy\\n";
-        add_header Content-Type text/plain;
-    }
-    
-    # Cache static assets
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        access_log off;
-    }
-    
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-}
-EOF
-
 # Ukloni default nginx konfiguraciju
 rm -f /etc/nginx/conf.d/default.conf
+rm -f /etc/nginx/nginx.conf
+
+# Kreiraj novu nginx konfiguraciju
+cat > /etc/nginx/nginx.conf << 'EOF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    
+    access_log /var/log/nginx/access.log main;
+    
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        # Frontend static files
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+        
+        # Proxy API requests to backend (fallback)
+        location /api/ {
+            proxy_pass http://127.0.0.1:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+        }
+        
+        # Health check endpoint za ALB
+        location /health {
+            access_log off;
+            return 200 "Frontend healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # Cache static assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            access_log off;
+        }
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+}
+EOF
 
 # Postavi vlasništvo fajlova
 chown -R ec2-user:ec2-user /opt/webapp
@@ -138,8 +171,9 @@ systemctl status nginx --no-pager -l
 
 # Test health endpoints
 echo "🧪 Testiram health endpoints..."
-curl -f http://localhost:3000/api/health && echo "✅ Backend health OK" || echo "❌ Backend health failed"
+curl -f http://localhost:3000/health && echo "✅ Backend health OK" || echo "❌ Backend health failed"
 curl -f http://localhost/health && echo "✅ Frontend health OK" || echo "❌ Frontend health failed"
+curl -f http://localhost/ && echo "✅ Frontend index OK" || echo "❌ Frontend index failed"
 
 # Provjeri port binding
 echo "📡 Port status:"
