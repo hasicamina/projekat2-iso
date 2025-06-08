@@ -1,0 +1,22 @@
+{
+    "name": "task-manager-frontend",
+    "version": "1.0.0",
+    "description": "Task Manager Frontend Application",
+    "main": "index.html",
+    "scripts": {
+      "start": "live-server --port=8080 --no-browser --watch=./",
+      "dev": "./start-dev.sh",
+      "build": "echo 'Static files ready for production'",
+      "serve": "live-server --port=8080"
+    },
+    "devDependencies": {
+      "live-server": "^1.2.2"
+    },
+    "keywords": [
+      "task-manager",
+      "frontend",
+      "vanilla-js"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+  }

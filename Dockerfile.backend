@@ -1,17 +1,22 @@
 # Koristimo oficijalnu Node.js sliku
 FROM node:18-alpine
 
-# Postavimo radni direktorij
+# Postavljamo environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Postavljamo radni direktorij
 WORKDIR /app
 
 # Kopiraj package.json iz backend direktorija
-COPY ./backend/package*.json ./
+COPY backend/package*.json ./
 
+# Instaliraj samo production dependencije
+RUN npm ci --only=production && npm cache clean --force
 
-# Instaliraj dependencije
-RUN npm install
-COPY ./backend/server.js ./
-COPY ./backend/.env ./
+# Kopiraj backend fajlove
+COPY backend/server.js ./
+COPY backend/.env.template ./.env
 
 # Kreiraj non-root korisnika
 RUN addgroup -g 1001 -S nodejs && \
@@ -26,9 +31,15 @@ USER nodejs
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+# Health check koji radi sa ALB health check rutom
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
 
-# Pokretanje aplikacije
+# Dodaj graceful shutdown handling
 CMD ["node", "server.js"]
+
+# Labels za meta informacije
+LABEL maintainer="webapp-team" \
+      version="1.0" \
+      description="Task Manager Backend API" \
+      environment="production"
