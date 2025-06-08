@@ -5,14 +5,13 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Kopiraj package.json iz backend direktorija
-COPY package*.json ./
+COPY ./backend/package*.json ./
 
 
 # Instaliraj dependencije
 RUN npm install
-COPY server.js ./
-COPY .env ./
-
+COPY ./backend/server.js ./
+COPY ./backend/.env ./
 
 # Kreiraj non-root korisnika
 RUN addgroup -g 1001 -S nodejs && \
