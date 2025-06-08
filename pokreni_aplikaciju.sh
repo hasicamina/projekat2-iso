@@ -111,7 +111,6 @@ echo "⚙️  Pokrećem backend..."
 docker run -d \
     --name webapp_backend \
     --network app-network \
-    -e CORS_ORIGIN=http://localhost \
     -e NODE_ENV=production \
     -e PORT=3000 \
     -e DB_HOST=webapp_postgres \
@@ -119,15 +118,16 @@ docker run -d \
     -e DB_NAME=webapp_db \
     -e DB_USER=postgres \
     -e DB_PASSWORD=postgres123 \
+    -e CORS_ORIGIN=http://localhost \
     -p 3000:3000 \
     --restart unless-stopped \
-    --health-cmd="curl -f http://localhost:3000/health || exit 1" \
+    --health-cmd="curl -f http://localhost:3000/api/health || exit 1" \
     --health-interval=30s \
     --health-timeout=10s \
     --health-retries=3 \
     webapp-backend
 
-if ! wait_for_service "Backend" "http://localhost:3000/health" 20; then
+if ! wait_for_service "Backend" "http://localhost:3000/api/health" 20; then
     echo "📋 Logovi backend-a:"
     docker logs webapp_backend | tail -20
     exit 1
@@ -160,10 +160,10 @@ docker run -d \
     -e PGADMIN_DEFAULT_EMAIL=admin@webapp.com \
     -e PGADMIN_DEFAULT_PASSWORD=admin123 \
     -e PGLADMIN_LISTEN_PORT=80 \
-    -v pgadmin_data:/var/lib/pgadmin \
+    -v pgadmin_data:/var/lib/pgladmin \
     -p 8080:80 \
     --restart unless-stopped \
-    dpage/pgadmin4:latest
+    dpage/pgladmin4:latest
 
 # Čekanje malo da se pgAdmin pokrene
 sleep 5
@@ -176,8 +176,8 @@ echo "🎉 Aplikacija je uspješno pokrenuta!"
 echo "======================================="
 echo "🌐 Frontend:  http://localhost"
 echo "🔧 Backend:   http://localhost:3000"
-echo "📊 Health:    http://localhost:3000/health"
-echo "📋 Tasks API: http://localhost:3000/tasks"
+echo "📊 Health:    http://localhost:3000/api/health"
+echo "📋 Tasks API: http://localhost:3000/api/tasks"
 echo "🗄️  pgAdmin:   http://localhost:8080"
 echo "   └─ Email: admin@webapp.com"
 echo "   └─ Pass:  admin123"
@@ -196,7 +196,7 @@ echo ""
 
 # Testiranje osnovnih funkcionalnosti
 echo "🧪 Testiram osnovne funkcionalnosti..."
-if curl -s http://localhost:3000/tasks > /dev/null; then
+if curl -s http://localhost:3000/api/tasks > /dev/null; then
     echo "✅ API endpoints rade!"
 else
     echo "⚠️  API možda nije potpuno spreman."

@@ -16,6 +16,18 @@ rm -rf /opt/webapp/*
 cd /opt/webapp
 git clone https://github.com/hasicamina/projekat2-iso .
 
+# Kreiraj .env fajl sa production vrijednostima
+cat > backend/.env << EOF
+PORT=3000
+NODE_ENV=production
+DB_HOST=${db_host}
+DB_PORT=5432
+DB_NAME=${db_name}
+DB_USER=${db_username}
+DB_PASSWORD=${db_password}
+DATABASE_URL=postgresql://${db_username}:${db_password}@${db_host}:5432/${db_name}
+EOF
+
 # Pokreni aplikaciju koristeći tvoju skriptu
 chmod +x pokreni_aplikaciju.sh
 ./pokreni_aplikaciju.sh >> /var/log/pokreni.log 2>&1

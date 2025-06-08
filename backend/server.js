@@ -21,12 +21,17 @@ app.use(cors());
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
     });
+});
+
+// I dodaj redirect za osnovnu health check rutu:
+app.get('/health', (req, res) => {
+    res.redirect('/api/health');
 });
 
 // Test database connection
@@ -70,7 +75,7 @@ async function createTableIfNotExists() {
 // API Routes
 
 // GET /tasks - Fetch all tasks
-app.get('/tasks', async (req, res) => {
+app.get('/api/tasks', async (req, res) => {
     try {
         const { status, priority, limit } = req.query;
         let query = 'SELECT * FROM tasks';
@@ -107,7 +112,7 @@ app.get('/tasks', async (req, res) => {
 });
 
 // GET /tasks/:id - Fetch single task
-app.get('/tasks/:id', async (req, res) => {
+app.get('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
         if (isNaN(taskId)) {
@@ -126,7 +131,7 @@ app.get('/tasks/:id', async (req, res) => {
 });
 
 // POST /tasks - Create new task
-app.post('/tasks', async (req, res) => {
+app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, status, priority, due_date } = req.body;
         
@@ -158,7 +163,7 @@ app.post('/tasks', async (req, res) => {
 });
 
 // PUT /tasks/:id - Update task
-app.put('/tasks/:id', async (req, res) => {
+app.put('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
         if (isNaN(taskId)) {
@@ -209,7 +214,7 @@ app.put('/tasks/:id', async (req, res) => {
 });
 
 // DELETE /tasks/:id - Delete task
-app.delete('/tasks/:id', async (req, res) => {
+app.delete('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
         if (isNaN(taskId)) {
@@ -232,7 +237,7 @@ app.delete('/tasks/:id', async (req, res) => {
 });
 
 // GET /stats - Get task statistics
-app.get('/stats', async (req, res) => {
+app.get('/api/stats', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM task_stats');
         res.json(result.rows[0] || {});

@@ -2,9 +2,8 @@
 FROM node:18-alpine as builder
 WORKDIR /app
 # Kopiraj frontend fajlove
-COPY frontend/ ./
-# Ako imate build proces za frontend (optional)
-# RUN npm install && npm run build
+COPY . ./
+
 
 # Production stage
 FROM nginx:alpine
@@ -16,7 +15,7 @@ RUN apk add --no-cache curl
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Kopiraj frontend fajlove
-COPY frontend/ /usr/share/nginx/html/
+COPY . /usr/share/nginx/html/
 
 # Kopiraj build fajlove iz builder stage (ako postoje)
 # COPY --from=builder /app/dist/ /usr/share/nginx/html/
@@ -37,7 +36,7 @@ RUN chown -R nginx:nginx /var/cache/nginx && \
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
     echo '<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>App Loading...</h1></body></html>' > /usr/share/nginx/html/index.html; \
     fi
-    
+
 # Expose ports
 EXPOSE 80 443
 
