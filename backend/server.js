@@ -20,18 +20,18 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint
+// Health check endpoint za ALB
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK' });
+});
+
+// Alternativna health ruta (npr. za frontend)
 app.get('/api/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
     });
-});
-
-// I dodaj redirect za osnovnu health check rutu:
-app.get('/health', (req, res) => {
-    res.redirect('/api/health');
 });
 
 // Test database connection
@@ -48,7 +48,7 @@ async function testDatabaseConnection() {
     }
 }
 
-// Helper: Create tasks table if not exists
+// Create tasks table if not exists
 async function createTableIfNotExists() {
     try {
         const query = `
@@ -74,7 +74,7 @@ async function createTableIfNotExists() {
 
 // API Routes
 
-// GET /tasks - Fetch all tasks
+// GET /tasks
 app.get('/api/tasks', async (req, res) => {
     try {
         const { status, priority, limit } = req.query;
@@ -111,7 +111,7 @@ app.get('/api/tasks', async (req, res) => {
     }
 });
 
-// GET /tasks/:id - Fetch single task
+// GET /tasks/:id
 app.get('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
@@ -130,7 +130,7 @@ app.get('/api/tasks/:id', async (req, res) => {
     }
 });
 
-// POST /tasks - Create new task
+// POST /tasks
 app.post('/api/tasks', async (req, res) => {
     try {
         const { title, description, status, priority, due_date } = req.body;
@@ -139,11 +139,9 @@ app.post('/api/tasks', async (req, res) => {
             return res.status(400).json({ error: 'Title is required' });
         }
 
-        // Validacija statusa
         const validStatuses = ['pending', 'in-progress', 'done'];
         const taskStatus = status && validStatuses.includes(status) ? status : 'pending';
 
-        // Validacija prioriteta
         const taskPriority = priority && Number.isInteger(priority) && priority >= 1 && priority <= 5 ? priority : 1;
 
         const result = await pool.query(
@@ -162,7 +160,7 @@ app.post('/api/tasks', async (req, res) => {
     }
 });
 
-// PUT /tasks/:id - Update task
+// PUT /tasks/:id
 app.put('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
@@ -176,13 +174,11 @@ app.put('/api/tasks/:id', async (req, res) => {
             return res.status(400).json({ error: 'Title is required' });
         }
 
-        // Validacija statusa
         const validStatuses = ['pending', 'in-progress', 'done'];
         if (status && !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status. Must be: pending, in-progress, or done' });
         }
 
-        // Validacija prioriteta
         if (priority && (!Number.isInteger(priority) || priority < 1 || priority > 5)) {
             return res.status(400).json({ error: 'Invalid priority. Must be integer between 1 and 5' });
         }
@@ -213,7 +209,7 @@ app.put('/api/tasks/:id', async (req, res) => {
     }
 });
 
-// DELETE /tasks/:id - Delete task
+// DELETE /tasks/:id
 app.delete('/api/tasks/:id', async (req, res) => {
     try {
         const taskId = parseInt(req.params.id);
@@ -236,7 +232,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
     }
 });
 
-// GET /stats - Get task statistics
+// GET /stats
 app.get('/api/stats', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM task_stats');
@@ -260,7 +256,7 @@ process.on('SIGINT', async () => {
     process.exit(0);
 });
 
-// Initialize database and start server
+// Initialize and start server
 async function initializeApp() {
     try {
         console.log('🚀 Starting Task Manager API...');
@@ -281,7 +277,6 @@ async function initializeApp() {
             console.log(`🚀 Task Manager API running on port ${port}`);
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`📋 Health check: http://localhost:${port}/health`);
-            console.log(`📊 API endpoints: http://localhost:${port}/tasks`);
         });
     } catch (error) {
         console.error('❌ Failed to initialize application:', error);

@@ -60,7 +60,7 @@ EOF
 
 # Postavljanje frontend-a
 echo "🔧 Postavljam frontend..."
-cd /opt/webappgit 
+cd /opt/webapp
 
 # Kopiraj frontend fajlove u nginx direktorij
 cp -r frontend/* /usr/share/nginx/html/
