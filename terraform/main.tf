@@ -234,7 +234,7 @@ resource "aws_lb_target_group" "frontend" {
   vpc_id   = aws_vpc.main.id
 
   health_check {
-   path   = "/index.html" 
+   path   = "/health" 
   matcher  = "200"
   interval = 30
   timeout  = 5
