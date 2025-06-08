@@ -248,7 +248,7 @@ resource "aws_lb_target_group" "backend" {
   vpc_id   = aws_vpc.main.id
 
   health_check {
-    path     = "/health"
+    path     = "/api/health"
     matcher  = "200"
     interval = 30
     timeout  = 5
@@ -291,7 +291,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/api/*", "/health"]
+      values = ["/api/*"]
     }
   }
 }

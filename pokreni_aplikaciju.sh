@@ -111,6 +111,7 @@ echo "⚙️  Pokrećem backend..."
 docker run -d \
     --name webapp_backend \
     --network app-network \
+    -e CORS_ORIGIN=http://localhost \
     -e NODE_ENV=production \
     -e PORT=3000 \
     -e DB_HOST=webapp_postgres \

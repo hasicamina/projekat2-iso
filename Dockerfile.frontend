@@ -33,6 +33,11 @@ RUN chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html
 
+# Kreiraj simple index file za fallback ako ne postoji
+RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
+    echo '<!DOCTYPE html><html><head><title>Loading...</title></head><body><h1>App Loading...</h1></body></html>' > /usr/share/nginx/html/index.html; \
+    fi
+    
 # Expose ports
 EXPOSE 80 443
 

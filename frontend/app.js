@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // API URL - menja se ovisno o environment-u
     const API_URL = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000/tasks' 
-        : '/api/tasks';
+    ? 'http://localhost:3000/api/tasks' 
+    : '/api/tasks';
     
     // DOM elementi
     const taskForm = document.getElementById('task-form');
