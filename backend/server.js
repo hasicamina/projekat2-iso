@@ -20,18 +20,36 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint za ALB
+// Health check endpoint za ALB - JEDNOSTAVAN
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'OK' });
 });
 
-// Alternativna health ruta (npr. za frontend)
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'OK', 
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-    });
+// Jednostavan health na root nivou (za nginx)
+app.get('/health', (req, res) => {
+    res.status(200).send('Backend healthy');
+});
+
+// Detaljniji health check sa database testom
+app.get('/api/health/detailed', async (req, res) => {
+    try {
+        // Test database connection
+        const result = await pool.query('SELECT NOW() as current_time');
+        res.status(200).json({ 
+            status: 'OK', 
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV || 'development',
+            database: 'connected',
+            db_time: result.rows[0].current_time
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            status: 'ERROR', 
+            timestamp: new Date().toISOString(),
+            database: 'disconnected',
+            error: error.message
+        });
+    }
 });
 
 // Test database connection
@@ -276,7 +294,8 @@ async function initializeApp() {
         app.listen(port, () => {
             console.log(`🚀 Task Manager API running on port ${port}`);
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`📋 Health check: http://localhost:${port}/health`);
+            console.log(`📋 Health check: http://localhost:${port}/api/health`);
+            console.log(`📋 Simple health: http://localhost:${port}/health`);
         });
     } catch (error) {
         console.error('❌ Failed to initialize application:', error);

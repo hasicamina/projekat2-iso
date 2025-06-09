@@ -171,10 +171,14 @@ systemctl status nginx --no-pager -l
 
 # Test health endpoints
 echo "🧪 Testiram health endpoints..."
-curl -f http://localhost:3000/health && echo "✅ Backend health OK" || echo "❌ Backend health failed"
+sleep 60  # Duži timeout za pokretanje
+curl -f http://localhost:3000/api/health && echo "✅ Backend API health OK" || echo "❌ Backend API health failed"
+curl -f http://localhost:3000/health && echo "✅ Backend root health OK" || echo "❌ Backend root health failed"
 curl -f http://localhost/health && echo "✅ Frontend health OK" || echo "❌ Frontend health failed"
-curl -f http://localhost/ && echo "✅ Frontend index OK" || echo "❌ Frontend index failed"
 
+# Detaljnije testiranje
+echo "🔍 Backend response test:"
+curl -v http://localhost:3000/api/health
 # Provjeri port binding
 echo "📡 Port status:"
 netstat -tlnp | grep ':3000\|:80'
