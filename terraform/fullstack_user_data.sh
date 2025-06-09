@@ -2,13 +2,31 @@
 exec > >(tee /var/log/user-data.log) 2>&1
 echo "🔧 Pokrećem provisioning..."
 
-# Ažuriraj sistem i instaliraj potrebne pakete
+# Ažuriraj sistem i instaliraj osnovne pakete
 yum update -y
-yum install -y git curl
+yum install -y git curl wget
 
-# Instaliraj Node.js 18
+# ISPRAVKA: Instaliraj Node.js na pravi način za Amazon Linux 2
+echo "📦 Instaliram Node.js..."
 curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
 yum install -y nodejs
+
+# Provjeri da li je Node.js uspješno instaliran
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js instalacija neuspješna, pokušavam alternativni način..."
+    # Alternativni način - direktno iz yum
+    yum install -y nodejs npm
+fi
+
+# Provjeri još jednom
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js se ne može instalirati!"
+    exit 1
+fi
+
+echo "✅ Node.js instaliran: $(node --version)"
+echo "✅ NPM verzija: $(npm --version)"
+echo "✅ Node.js putanja: $(which node)"
 
 # Instaliraj nginx
 amazon-linux-extras install nginx1 -y
@@ -18,7 +36,7 @@ mkdir -p /opt/webapp
 cd /opt/webapp
 
 # Kloniraj repozitorij
-git clone ${git_repo_url} .
+git clone https://github.com/hasicamina/projekat2-iso .
 
 # Postavljanje backend-a
 echo "🔧 Postavljam backend..."
@@ -39,7 +57,11 @@ EOF
 # Instaliraj backend dependencies
 npm install --production
 
-# Kreiraj systemd servis za backend
+# ISPRAVKA: Dinamički uzmi putanju Node.js-a za systemd servis
+NODE_PATH=$(which node)
+echo "🔧 Node.js putanja za systemd: $NODE_PATH"
+
+# Kreiraj systemd servis sa ispravnom putanjom
 cat > /etc/systemd/system/webapp-backend.service << EOF
 [Unit]
 Description=Web App Backend
@@ -50,7 +72,7 @@ Type=simple
 User=ec2-user
 WorkingDirectory=/opt/webapp/backend
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/node server.js
+ExecStart=$NODE_PATH server.js
 Restart=always
 RestartSec=10
 
@@ -113,7 +135,7 @@ http {
             try_files $uri $uri/ /index.html;
         }
         
-        # Proxy API requests to backend (fallback)
+        # Proxy API requests to backend
         location /api/ {
             proxy_pass http://127.0.0.1:3000;
             proxy_http_version 1.1;
@@ -152,6 +174,19 @@ EOF
 chown -R ec2-user:ec2-user /opt/webapp
 chown -R nginx:nginx /usr/share/nginx/html
 
+# ISPRAVKA: Dodaj dodatne provjere prije pokretanja servisa
+echo "🔍 Provjeram backend setup..."
+ls -la /opt/webapp/backend/server.js
+ls -la /opt/webapp/backend/package.json
+ls -la /opt/webapp/backend/.env
+
+# Testiranje Node.js aplikacije prije systemd servisa
+echo "🧪 Testiram Node.js aplikaciju direktno..."
+cd /opt/webapp/backend
+timeout 10s su - ec2-user -c "cd /opt/webapp/backend && node server.js" &
+sleep 5
+kill $! 2>/dev/null || true
+
 # Pokreni i omogući servise
 systemctl daemon-reload
 systemctl enable webapp-backend
@@ -169,31 +204,42 @@ echo "📊 Status servisa:"
 systemctl status webapp-backend --no-pager -l
 systemctl status nginx --no-pager -l
 
-# Test health endpoints
-echo "🧪 Testiram health endpoints..."
-sleep 60  # Duži timeout za pokretanje
-curl -f http://localhost:3000/api/health && echo "✅ Backend API health OK" || echo "❌ Backend API health failed"
-curl -f http://localhost:3000/health && echo "✅ Backend root health OK" || echo "❌ Backend root health failed"
-curl -f http://localhost/health && echo "✅ Frontend health OK" || echo "❌ Frontend health failed"
-
-# Detaljnije testiranje
-echo "🔍 Backend response test:"
-curl -v http://localhost:3000/api/health
-# Provjeri port binding
-echo "📡 Port status:"
-netstat -tlnp | grep ':3000\|:80'
-
-echo "✅ Provisioning završen!"
-
-# Dodatne informacije za debugging
+# ISPRAVKA: Dodaj više debug informacija
 echo "🔍 Debug informacije:"
 echo "Node.js verzija: $(node --version)"
 echo "NPM verzija: $(npm --version)"
-echo "Backend PID: $(pgrep -f 'node server.js')"
-echo "Nginx PID: $(pgrep nginx)"
+echo "Node.js putanja: $(which node)"
+echo "Backend PID: $(pgrep -f 'node server.js' || echo 'Nije pokrenut')"
+echo "Nginx PID: $(pgrep nginx || echo 'Nije pokrenut')"
+
+# Provjeri portove
+echo "📡 Port status:"
+netstat -tlnp | grep ':3000\|:80' || echo "Portovi nisu aktivni"
+
+# Test health endpoints sa više pokušaja
+echo "🧪 Testiram health endpoints..."
+for i in {1..5}; do
+    echo "Pokušaj $i/5:"
+    curl -f -m 5 http://localhost:3000/api/health && echo "✅ Backend API health OK" || echo "❌ Backend API health failed"
+    curl -f -m 5 http://localhost/health && echo "✅ Frontend health OK" || echo "❌ Frontend health failed"
+    sleep 10
+done
 
 # Logovi za praćenje
 echo "📋 Važni logovi:"
 echo "Backend logs: journalctl -u webapp-backend -f"
 echo "Nginx logs: tail -f /var/log/nginx/error.log"
 echo "User data log: tail -f /var/log/user-data.log"
+
+# ISPRAVKA: Dodatni error handling
+if ! systemctl is-active --quiet webapp-backend; then
+    echo "❌ Backend servis nije aktivan, provjeri logove:"
+    journalctl -u webapp-backend --no-pager -l
+fi
+
+if ! systemctl is-active --quiet nginx; then
+    echo "❌ Nginx servis nije aktivan, provjeri logove:"
+    journalctl -u nginx --no-pager -l
+fi
+
+echo "✅ Provisioning završen!"
